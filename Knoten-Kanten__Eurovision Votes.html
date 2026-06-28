@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<!-- saved from url=(0070)file:///C:/Users/edenm/Downloads/Knoten-Kanten___Eurovision_Votes.html -->
+<html lang="de"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <title>Knoten-Kanten — Eurovision Votes</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #03101e;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        #stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+        .star { position: absolute; border-radius: 50%; background: #fff;
+            animation: twinkle var(--d,3s) ease-in-out infinite alternate; opacity: var(--o,.4); }
+        @keyframes twinkle { to { opacity: 0.05; } }
+
+        .header {
+            position: relative; z-index: 1;
+            text-align: center;
+            padding: 48px 24px 24px;
+        }
+        .header h1 {
+            font-size: clamp(1.6rem, 4vw, 2.2rem);
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff 0%, #00b4d8 60%, #fb8500 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .header p { font-size: 0.82rem; color: rgba(255,255,255,0.45); margin-top: 6px; }
+        .accent-bar { width: 48px; height: 3px; background: linear-gradient(90deg,#fb8500,#00b4d8); border-radius: 2px; margin: 10px auto 0; }
+
+        /* Controls */
+        .controls {
+            margin-top: 20px;
+            position: relative; z-index: 1;
+            display: flex; gap: 12px; flex-wrap: wrap;
+            justify-content: center;
+            padding: 0 24px 20px;
+        }
+        .ctrl-group { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+        .ctrl-label { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.4); }
+        .ctrl-row { display: flex; gap: 8px; }
+        button.btn {
+            border: none; border-radius: 20px;
+            font-family: 'Poppins', sans-serif; font-size: 10px; font-weight: 600;
+            padding: 6px 14px; cursor: pointer;
+            background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.6);
+            transition: all 0.2s;
+        }
+        button.btn:hover, button.btn.active {
+            background: linear-gradient(90deg, #fb8500, #003566);
+            color: #fff;
+        }
+        input[type=range] {
+            accent-color: #fb8500;
+            width: 160px;
+        }
+        .range-val { font-size: 10px; color: #fb8500; font-weight: 600; min-width: 30px; text-align: center; }
+
+        /* Graph */
+        #graph-wrap {
+            position: relative; z-index: 1;
+            width: 100%; max-width: 1000px;
+            padding: 0 16px;
+        }
+        #graph-svg {
+            width: 100%; height: 680px;
+            background: rgba(0,29,61,0.4);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 20px;
+        }
+
+        /* Tooltip STABILISÉ */
+        #tooltip {
+            position: absolute; /* Modifié en absolute pour fonctionner parfaitement avec pageX/pageY */
+            background: #001d3d;
+            border: 1px solid rgba(0, 180, 216, 0.5);
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 12px;
+            pointer-events: none !important; /* CRUCIAL : empêche le tooltip de couper les événements de souris */
+            display: none;
+            z-index: 99999;
+            min-width: 180px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+        }
+        #tooltip .tt-title { font-weight: 700; font-size: 13px; color: #fb8500; margin-bottom: 6px; }
+        #tooltip .tt-row { color: rgba(255,255,255,0.65); line-height: 1.7; }
+        #tooltip .tt-val { color: #fff; font-weight: 600; }
+
+        /* Legend */
+        .legend {
+            position: relative; z-index: 1;
+            display: flex; gap: 32px; flex-wrap: wrap;
+            justify-content: center;
+            padding: 20px 24px 48px;
+            font-size: 11px; color: rgba(255,255,255,0.5);
+        }
+        .leg-item { display: flex; align-items: center; gap: 8px; }
+        .leg-circle { border-radius: 50%; flex-shrink: 0; }
+        .leg-line { height: 3px; border-radius: 2px; flex-shrink: 0; }
+
+        .home-btn {
+            position: fixed; top: 20px; left: 20px; z-index: 10;
+            background: rgba(0,29,61,0.8); border: 1px solid rgba(255,255,255,0.1);
+            color: #fff; padding: 8px 16px; border-radius: 20px;
+            font-family: 'Poppins', sans-serif; font-size: 12px; cursor: pointer;
+            text-decoration: none; display: flex; align-items: center; gap: 8px;
+            transition: background 0.2s;
+        }
+        .home-btn:hover { background: #001d3d; }
+
+        /* Éléments à ignorer pour éviter les micro-coupures de survol */
+        .node-label { pointer-events: none !important; font-family: 'Poppins', sans-serif; }
+        .links line { pointer-events: none !important; } /* Les lignes ne doivent pas intercepter le survol des nœuds */
+
+        /* ── DESCRIPTION BOX ── */
+        .viz-description {
+            position: relative; z-index: 1;
+            max-width: 960px; width: 90%;
+            margin: 0 auto;
+            background: rgba(0,29,61,0.6);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-left: 3px solid #fb8500;
+            border-radius: 12px;
+            padding: 24px 28px;
+            display: flex; flex-direction: column; gap: 14px;
+        }
+        .vd-title { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #fb8500; }
+        .vd-text { font-size: 13px; line-height: 1.75; color: rgba(255,255,255,0.65); }
+        .vd-tips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .vd-tip { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.05); border-radius: 20px; padding: 5px 12px; font-size: 11px; color: rgba(255,255,255,0.55); }
+        .vd-tip i { color: #00b4d8; font-size: 11px; }
+
+    </style>
+</head>
+<body>
+    <a href="index.html" class="btn-back" style="
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        background-color: #001d3d;
+        color: #ffffff;
+        text-decoration: none;
+        border-radius: 6px;
+        font-family: 'Poppins', sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+        border: 1px solid #00b4d8;
+        z-index: 9999;
+        transition: all 0.2s ease-in-out;
+    " onmouseover="this.style.backgroundColor='#00b4d8'; this.style.borderColor='#fb8500';" onmouseout="this.style.backgroundColor='#001d3d'; this.style.borderColor='#00b4d8';">
+        <i class="fa-solid fa-arrow-left"></i> Zurück zur Startseite
+    </a>
+
+<div id="stars"><div class="star" style="width: 1.22588px; height: 1.22588px; top: 83.3017%; left: 58.5278%; --d: 3.6s; --o: 0.24; animation-delay: 2.6s;"></div><div class="star" style="width: 0.905644px; height: 0.905644px; top: 9.54067%; left: 94.4897%; --d: 5.3s; --o: 0.45; animation-delay: 3.9s;"></div><div class="star" style="width: 1.84969px; height: 1.84969px; top: 83.8862%; left: 20.1335%; --d: 2.3s; --o: 0.45; animation-delay: 2.8s;"></div><div class="star" style="width: 1.77267px; height: 1.77267px; top: 52.0737%; left: 41.7544%; --d: 5.7s; --o: 0.17; animation-delay: 2.3s;"></div><div class="star" style="width: 2.45045px; height: 2.45045px; top: 15.893%; left: 21.6137%; --d: 3.8s; --o: 0.23; animation-delay: 1.8s;"></div><div class="star" style="width: 1.27619px; height: 1.27619px; top: 53.5808%; left: 45.9581%; --d: 4.4s; --o: 0.38; animation-delay: 0.8s;"></div><div class="star" style="width: 0.68885px; height: 0.68885px; top: 5.90192%; left: 73.6209%; --d: 3.9s; --o: 0.27; animation-delay: 2.7s;"></div><div class="star" style="width: 0.594206px; height: 0.594206px; top: 6.48251%; left: 14.3869%; --d: 4.5s; --o: 0.12; animation-delay: 0.4s;"></div><div class="star" style="width: 1.13201px; height: 1.13201px; top: 55.6402%; left: 71.1151%; --d: 2.8s; --o: 0.33; animation-delay: 0.3s;"></div><div class="star" style="width: 1.39814px; height: 1.39814px; top: 48.4632%; left: 40.8454%; --d: 2.3s; --o: 0.20; animation-delay: 0.9s;"></div><div class="star" style="width: 2.02046px; height: 2.02046px; top: 66.9369%; left: 90.5752%; --d: 4.8s; --o: 0.18; animation-delay: 2s;"></div><div class="star" style="width: 1.02365px; height: 1.02365px; top: 54.9349%; left: 35.3638%; --d: 2.2s; --o: 0.40; animation-delay: 2s;"></div><div class="star" style="width: 1.73156px; height: 1.73156px; top: 70.9871%; left: 2.22613%; --d: 5.1s; --o: 0.31; animation-delay: 1.9s;"></div><div class="star" style="width: 0.573478px; height: 0.573478px; top: 67.3482%; left: 49.2652%; --d: 3.2s; --o: 0.38; animation-delay: 3.3s;"></div><div class="star" style="width: 1.67039px; height: 1.67039px; top: 68.4669%; left: 30.5905%; --d: 3.6s; --o: 0.30; animation-delay: 1.1s;"></div><div class="star" style="width: 0.551212px; height: 0.551212px; top: 25.4339%; left: 6.49714%; --d: 5.1s; --o: 0.30; animation-delay: 3.7s;"></div><div class="star" style="width: 2.05171px; height: 2.05171px; top: 44.6092%; left: 54.9703%; --d: 2.6s; --o: 0.46; animation-delay: 1s;"></div><div class="star" style="width: 2.46033px; height: 2.46033px; top: 14.8792%; left: 46.7286%; --d: 3.8s; --o: 0.21; animation-delay: 3.4s;"></div><div class="star" style="width: 1.21881px; height: 1.21881px; top: 55.7818%; left: 96.9869%; --d: 4.7s; --o: 0.40; animation-delay: 3.5s;"></div><div class="star" style="width: 1.29764px; height: 1.29764px; top: 98.1974%; left: 38.5984%; --d: 2.7s; --o: 0.35; animation-delay: 3s;"></div><div class="star" style="width: 2.14121px; height: 2.14121px; top: 43.2282%; left: 75.8374%; --d: 4.3s; --o: 0.15; animation-delay: 3.8s;"></div><div class="star" style="width: 2.17145px; height: 2.17145px; top: 33.9224%; left: 39.5488%; --d: 2.9s; --o: 0.12; animation-delay: 2.2s;"></div><div class="star" style="width: 1.21285px; height: 1.21285px; top: 95.8269%; left: 31.4255%; --d: 2.9s; --o: 0.38; animation-delay: 3.7s;"></div><div class="star" style="width: 0.578845px; height: 0.578845px; top: 95.2617%; left: 67.4807%; --d: 5.5s; --o: 0.13; animation-delay: 3s;"></div><div class="star" style="width: 2.1332px; height: 2.1332px; top: 92.671%; left: 42.6964%; --d: 2.3s; --o: 0.34; animation-delay: 3.6s;"></div><div class="star" style="width: 1.09554px; height: 1.09554px; top: 3.03159%; left: 17.1977%; --d: 6.0s; --o: 0.12; animation-delay: 1.3s;"></div><div class="star" style="width: 1.7378px; height: 1.7378px; top: 22.7781%; left: 84.437%; --d: 2.7s; --o: 0.16; animation-delay: 3.1s;"></div><div class="star" style="width: 1.90398px; height: 1.90398px; top: 55.1443%; left: 80.3948%; --d: 3.0s; --o: 0.45; animation-delay: 0.9s;"></div><div class="star" style="width: 2.12075px; height: 2.12075px; top: 90.6855%; left: 61.9658%; --d: 4.0s; --o: 0.42; animation-delay: 2.9s;"></div><div class="star" style="width: 0.704754px; height: 0.704754px; top: 80.6965%; left: 90.738%; --d: 5.6s; --o: 0.14; animation-delay: 1.8s;"></div><div class="star" style="width: 0.812449px; height: 0.812449px; top: 73.7215%; left: 45.5655%; --d: 2.3s; --o: 0.40; animation-delay: 2.8s;"></div><div class="star" style="width: 2.25263px; height: 2.25263px; top: 32.9495%; left: 42.9148%; --d: 3.1s; --o: 0.17; animation-delay: 1.7s;"></div><div class="star" style="width: 1.19613px; height: 1.19613px; top: 76.629%; left: 19.7354%; --d: 2.9s; --o: 0.25; animation-delay: 2.9s;"></div><div class="star" style="width: 2.14569px; height: 2.14569px; top: 39.3239%; left: 98.9197%; --d: 3.9s; --o: 0.25; animation-delay: 3.7s;"></div><div class="star" style="width: 2.26323px; height: 2.26323px; top: 18.4819%; left: 17.2147%; --d: 4.4s; --o: 0.11; animation-delay: 2.6s;"></div><div class="star" style="width: 0.840678px; height: 0.840678px; top: 35.9491%; left: 16.4824%; --d: 5.5s; --o: 0.35; animation-delay: 2.9s;"></div><div class="star" style="width: 1.73728px; height: 1.73728px; top: 96.5331%; left: 32.1162%; --d: 4.7s; --o: 0.26; animation-delay: 3.6s;"></div><div class="star" style="width: 2.41101px; height: 2.41101px; top: 64.8982%; left: 99.2248%; --d: 5.1s; --o: 0.46; animation-delay: 2.5s;"></div><div class="star" style="width: 0.753994px; height: 0.753994px; top: 58.3282%; left: 41.5988%; --d: 5.9s; --o: 0.11; animation-delay: 1.6s;"></div><div class="star" style="width: 2.46313px; height: 2.46313px; top: 89.0681%; left: 56.1653%; --d: 3.5s; --o: 0.30; animation-delay: 0.4s;"></div><div class="star" style="width: 1.96946px; height: 1.96946px; top: 4.12982%; left: 39.0586%; --d: 5.5s; --o: 0.27; animation-delay: 2.5s;"></div><div class="star" style="width: 0.997784px; height: 0.997784px; top: 5.44192%; left: 76.6484%; --d: 2.4s; --o: 0.41; animation-delay: 2.3s;"></div><div class="star" style="width: 1.74501px; height: 1.74501px; top: 23.0937%; left: 64.6049%; --d: 3.3s; --o: 0.25; animation-delay: 3.3s;"></div><div class="star" style="width: 2.31365px; height: 2.31365px; top: 82.9474%; left: 78.7327%; --d: 2.3s; --o: 0.30; animation-delay: 3.8s;"></div><div class="star" style="width: 2.49599px; height: 2.49599px; top: 85.1601%; left: 90.9085%; --d: 5.9s; --o: 0.49; animation-delay: 2.5s;"></div><div class="star" style="width: 1.5275px; height: 1.5275px; top: 30.5532%; left: 58.6554%; --d: 3.6s; --o: 0.17; animation-delay: 0.3s;"></div><div class="star" style="width: 0.551448px; height: 0.551448px; top: 65.6938%; left: 3.48021%; --d: 4.5s; --o: 0.24; animation-delay: 1.8s;"></div><div class="star" style="width: 1.1869px; height: 1.1869px; top: 27.0993%; left: 56.4551%; --d: 2.9s; --o: 0.36; animation-delay: 2.3s;"></div><div class="star" style="width: 2.02056px; height: 2.02056px; top: 87.525%; left: 81.769%; --d: 4.1s; --o: 0.28; animation-delay: 2.5s;"></div><div class="star" style="width: 1.89908px; height: 1.89908px; top: 27.583%; left: 64.6191%; --d: 4.3s; --o: 0.31; animation-delay: 2.6s;"></div><div class="star" style="width: 1.67273px; height: 1.67273px; top: 40.1271%; left: 50.0426%; --d: 2.4s; --o: 0.41; animation-delay: 0.4s;"></div><div class="star" style="width: 0.873887px; height: 0.873887px; top: 41.9854%; left: 31.5885%; --d: 4.4s; --o: 0.41; animation-delay: 3.1s;"></div><div class="star" style="width: 1.08629px; height: 1.08629px; top: 36.5158%; left: 75.2519%; --d: 4.8s; --o: 0.26; animation-delay: 1.8s;"></div><div class="star" style="width: 0.849411px; height: 0.849411px; top: 95.5895%; left: 42.3559%; --d: 2.0s; --o: 0.36; animation-delay: 2.6s;"></div><div class="star" style="width: 0.666951px; height: 0.666951px; top: 49.0676%; left: 11.5778%; --d: 5.0s; --o: 0.25; animation-delay: 1.6s;"></div><div class="star" style="width: 0.512089px; height: 0.512089px; top: 1.10957%; left: 85.9173%; --d: 5.4s; --o: 0.47; animation-delay: 3s;"></div><div class="star" style="width: 1.84789px; height: 1.84789px; top: 20.7741%; left: 2.08231%; --d: 3.5s; --o: 0.32; animation-delay: 3.6s;"></div><div class="star" style="width: 2.3032px; height: 2.3032px; top: 81.3493%; left: 81.7576%; --d: 4.9s; --o: 0.33; animation-delay: 1.2s;"></div><div class="star" style="width: 2.27574px; height: 2.27574px; top: 14.8959%; left: 93.497%; --d: 2.1s; --o: 0.11; animation-delay: 3.8s;"></div><div class="star" style="width: 0.716521px; height: 0.716521px; top: 0.235304%; left: 63.1977%; --d: 2.4s; --o: 0.37; animation-delay: 3.7s;"></div><div class="star" style="width: 1.32823px; height: 1.32823px; top: 40.3939%; left: 33.0476%; --d: 4.3s; --o: 0.12; animation-delay: 1.3s;"></div><div class="star" style="width: 1.03241px; height: 1.03241px; top: 99.6881%; left: 90.4924%; --d: 2.7s; --o: 0.49; animation-delay: 2.3s;"></div><div class="star" style="width: 1.5815px; height: 1.5815px; top: 7.63726%; left: 6.57544%; --d: 5.5s; --o: 0.24; animation-delay: 1s;"></div><div class="star" style="width: 0.701163px; height: 0.701163px; top: 13.7676%; left: 28.7291%; --d: 4.8s; --o: 0.16; animation-delay: 0.6s;"></div><div class="star" style="width: 0.763532px; height: 0.763532px; top: 56.2334%; left: 44.2255%; --d: 4.4s; --o: 0.26; animation-delay: 1.1s;"></div><div class="star" style="width: 0.935068px; height: 0.935068px; top: 87.7448%; left: 75.4523%; --d: 4.2s; --o: 0.47; animation-delay: 3.7s;"></div><div class="star" style="width: 0.85607px; height: 0.85607px; top: 42.498%; left: 19.9472%; --d: 3.9s; --o: 0.13; animation-delay: 2.5s;"></div><div class="star" style="width: 1.67017px; height: 1.67017px; top: 79.0208%; left: 63.4081%; --d: 2.5s; --o: 0.14; animation-delay: 2.6s;"></div><div class="star" style="width: 1.72788px; height: 1.72788px; top: 30.6779%; left: 54.2039%; --d: 3.9s; --o: 0.21; animation-delay: 0.1s;"></div><div class="star" style="width: 1.42592px; height: 1.42592px; top: 78.9187%; left: 66.301%; --d: 5.9s; --o: 0.21; animation-delay: 2.6s;"></div><div class="star" style="width: 1.57488px; height: 1.57488px; top: 85.8015%; left: 51.8987%; --d: 2.3s; --o: 0.40; animation-delay: 1.8s;"></div><div class="star" style="width: 2.04429px; height: 2.04429px; top: 3.55217%; left: 78.5115%; --d: 3.6s; --o: 0.26; animation-delay: 1.2s;"></div><div class="star" style="width: 1.79516px; height: 1.79516px; top: 25.1498%; left: 95.4713%; --d: 5.5s; --o: 0.34; animation-delay: 0.5s;"></div><div class="star" style="width: 0.94416px; height: 0.94416px; top: 25.0066%; left: 5.56575%; --d: 3.5s; --o: 0.20; animation-delay: 3.2s;"></div><div class="star" style="width: 0.831787px; height: 0.831787px; top: 19.2872%; left: 40.6242%; --d: 4.2s; --o: 0.28; animation-delay: 1.7s;"></div><div class="star" style="width: 2.19197px; height: 2.19197px; top: 14.3255%; left: 60.3013%; --d: 2.3s; --o: 0.26; animation-delay: 3.5s;"></div><div class="star" style="width: 1.53219px; height: 1.53219px; top: 62.3598%; left: 80.7485%; --d: 2.4s; --o: 0.23; animation-delay: 2.2s;"></div><div class="star" style="width: 1.60454px; height: 1.60454px; top: 9.02754%; left: 88.6348%; --d: 2.2s; --o: 0.17; animation-delay: 0.9s;"></div><div class="star" style="width: 1.74408px; height: 1.74408px; top: 2.30045%; left: 30.3702%; --d: 3.9s; --o: 0.28; animation-delay: 3.5s;"></div><div class="star" style="width: 0.684182px; height: 0.684182px; top: 47.1625%; left: 95.4453%; --d: 2.2s; --o: 0.11; animation-delay: 3.5s;"></div><div class="star" style="width: 1.24594px; height: 1.24594px; top: 97.9144%; left: 35.6343%; --d: 3.4s; --o: 0.15; animation-delay: 1.2s;"></div><div class="star" style="width: 0.881296px; height: 0.881296px; top: 90.7837%; left: 70.9827%; --d: 3.9s; --o: 0.48; animation-delay: 3.6s;"></div><div class="star" style="width: 1.37108px; height: 1.37108px; top: 78.6511%; left: 50.6212%; --d: 2.7s; --o: 0.24; animation-delay: 1.7s;"></div><div class="star" style="width: 1.86221px; height: 1.86221px; top: 51.9936%; left: 74.0343%; --d: 5.1s; --o: 0.34; animation-delay: 0.1s;"></div><div class="star" style="width: 2.12846px; height: 2.12846px; top: 2.5996%; left: 7.45816%; --d: 4.2s; --o: 0.49; animation-delay: 1.6s;"></div><div class="star" style="width: 1.42518px; height: 1.42518px; top: 45.7105%; left: 24.5529%; --d: 3.2s; --o: 0.28; animation-delay: 3.6s;"></div><div class="star" style="width: 0.816939px; height: 0.816939px; top: 15.9289%; left: 23.7597%; --d: 3.0s; --o: 0.16; animation-delay: 1s;"></div><div class="star" style="width: 2.35863px; height: 2.35863px; top: 86.9585%; left: 53.729%; --d: 2.4s; --o: 0.44; animation-delay: 0.2s;"></div><div class="star" style="width: 2.38037px; height: 2.38037px; top: 95.4394%; left: 9.71156%; --d: 2.2s; --o: 0.34; animation-delay: 1s;"></div><div class="star" style="width: 1.56948px; height: 1.56948px; top: 65.5453%; left: 30.8099%; --d: 2.3s; --o: 0.38; animation-delay: 3.6s;"></div><div class="star" style="width: 1.0042px; height: 1.0042px; top: 95.7748%; left: 43.9339%; --d: 3.8s; --o: 0.39; animation-delay: 2.1s;"></div><div class="star" style="width: 1.78952px; height: 1.78952px; top: 6.24582%; left: 71.4062%; --d: 4.5s; --o: 0.23; animation-delay: 3.3s;"></div><div class="star" style="width: 1.63541px; height: 1.63541px; top: 58.4328%; left: 82.8166%; --d: 3.6s; --o: 0.38; animation-delay: 1.8s;"></div><div class="star" style="width: 2.02772px; height: 2.02772px; top: 29.9391%; left: 69.5202%; --d: 2.4s; --o: 0.19; animation-delay: 0.9s;"></div><div class="star" style="width: 1.46002px; height: 1.46002px; top: 69.0455%; left: 79.2854%; --d: 3.4s; --o: 0.25; animation-delay: 3.7s;"></div><div class="star" style="width: 1.71351px; height: 1.71351px; top: 19.21%; left: 64.9762%; --d: 5.2s; --o: 0.41; animation-delay: 0s;"></div><div class="star" style="width: 1.78651px; height: 1.78651px; top: 75.3979%; left: 33.0331%; --d: 5.7s; --o: 0.29; animation-delay: 3.6s;"></div><div class="star" style="width: 1.61997px; height: 1.61997px; top: 90.5924%; left: 61.5947%; --d: 5.7s; --o: 0.49; animation-delay: 0.9s;"></div><div class="star" style="width: 0.766887px; height: 0.766887px; top: 19.3698%; left: 88.0349%; --d: 3.2s; --o: 0.21; animation-delay: 1.6s;"></div><div class="star" style="width: 1.8768px; height: 1.8768px; top: 11.9268%; left: 70.9426%; --d: 2.3s; --o: 0.12; animation-delay: 2.3s;"></div></div>
+<div id="tooltip">
+    <div class="tt-title" id="tt-title"></div>
+    <div id="tt-body"></div>
+</div>
+
+<div class="header">
+    <h1>Netzwerk der Stimmen</h1>
+    <p>Punkte zwischen Ländern — nur starke Verbindungen (kumuliert 1957–2026) · Ziehe Knoten zum Erkunden</p>
+    <div class="accent-bar"></div>
+</div>
+
+<div class="viz-description">
+    <div class="vd-title">💡 So funktioniert diese Visualisierung</div>
+    <div class="vd-text">
+        Dieses <strong style="color:#fff">Netzwerkdiagramm</strong> zeigt die historischen Punkteallianzen zwischen den Eurovision-Ländern (1957–2026).
+        Jeder <strong style="color:#fb8500">Knoten</strong> steht für ein Land, jede <strong style="color:#00b4d8">Kante</strong> für eine starke Punktebeziehung. 
+        <br>Beim Klicken auf ein Landknoten, sehen sie alle anderen Länder, die ihm Punkte gegeben haben. 
+        <br>
+        Länder, die sich regelmäßig gegenseitig hohe Punkte geben, erscheinen eng verbunden — so werden geopolitische Blöcke sichtbar.
+        <br>
+        Dominanz kennzeichnet sich also nicht nur durch die Anzahl der Siege eines Landes, sondern auch durch sein Netzwerk und die Beziehungen zu anderen, Faktoren, die ein einflussreiches und geopolitisch stärkes Land ausmachen.
+    </div>
+    <div class="vd-tips">
+        <div class="vd-tip"><i class="fa-solid fa-hand-pointer"></i> Knoten anklicken → Verbindungen hervorheben</div>
+        <div class="vd-tip"><i class="fa-solid fa-arrows-up-down-left-right"></i> Knoten ziehen → Position verschieben</div>
+        <div class="vd-tip"><i class="fa-solid fa-magnifying-glass"></i> Scrollen → Zoom</div>
+        <div class="vd-tip"><i class="fa-solid fa-sliders"></i> Schieberegler → Mindeststärke der Verbindung anpassen</div>
+        <div class="vd-tip"><i class="fa-solid fa-circle-nodes"></i> Knotengröße → nach Gesamtpunkten oder Verbindungsanzahl</div>
+        <div class="vd-tip"><i class="fa-solid fa-globe"></i> Clusteranalyse → geografisch oder nach Punkteaustausch</div>
+    </div>
+</div>
+
+<div class="controls">
+    <div class="ctrl-group">
+        <span class="ctrl-label">Mindestpunkte (Link)</span>
+        <div class="ctrl-row">
+            <input type="range" id="threshold" min="50" max="700" step="25" value="300">
+            <span class="range-val" id="threshold-val">300</span>
+        </div>
+    </div>
+    <div class="ctrl-group">
+        <span class="ctrl-label">Knotengröße</span>
+        <div class="ctrl-row">
+            <button class="btn active" id="size-total">Gesamtpunkte</button>
+            <button class="btn" id="size-degree">Verbindungen</button>
+        </div>
+    </div>
+    <div class="ctrl-group">
+        <span class="ctrl-label">Clusteranalyse</span>
+        <div class="ctrl-row">
+            <button class="btn" id="cluster-geo">🌍 Geografie/Region</button>
+            <button class="btn" id="cluster-votes">📊 Punkteaustausch</button>
+        </div>
+    </div>
+    <div class="ctrl-group">
+        <span class="ctrl-label">Aktion</span>
+        <div class="ctrl-row">
+            <button class="btn" id="btn-reset">↺ Reset</button>
+        </div>
+    </div>
+</div>
+
+<div id="graph-wrap">
+    <svg id="graph-svg"></svg>
+</div>
+
+<div class="legend">
+    <div class="leg-item">
+        <div class="leg-circle" style="width:12px;height:12px;background:#4ea8de;"></div>
+        <span>Nordisch / Skandinavisch</span>
+    </div>
+    <div class="leg-item">
+        <div class="leg-circle" style="width:12px;height:12px;background:#ff4d6d;"></div>
+        <span>Balkan / Ostblock</span>
+    </div>
+    <div class="leg-item">
+        <div class="leg-circle" style="width:12px;height:12px;background:#70e000;"></div>
+        <span>West- &amp; Mitteleuropa</span>
+    </div>
+    <div class="leg-item">
+        <div class="leg-circle" style="width:12px;height:12px;background:#ffb703;"></div>
+        <span>Südeuropa / Mittelmeer</span>
+    </div>
+    <div class="leg-item">
+        <div class="leg-circle" style="width:12px;height:12px;background:#9d4edd;"></div>
+        <span>Rest der Welt (UA, RU, etc.)</span>
+    </div>
+    <div class="leg-item">
+        <div class="leg-line" style="width:30px;background:rgba(0,180,216,0.3);"></div>
+        <span>Schwache Verbindung</span>
+    </div>
+    <div class="leg-item">
+        <div class="leg-line" style="width:30px;height:5px;background:#00b4d8;"></div>
+        <span>Starke Verbindung</span>
+    </div>
+</div>
+
+<script>
+    const starsEl = document.getElementById('stars')
+    for (let i = 0; i < 100; i++) {
+        const s = document.createElement('div')
+        s.className = 'star'
+        const size = Math.random() * 2 + 0.5
+        s.style.cssText = `width:${size}px;height:${size}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--d:${(Math.random()*4+2).toFixed(1)}s;--o:${(Math.random()*0.4+0.1).toFixed(2)};animation-delay:${(Math.random()*4).toFixed(1)}s;`
+        starsEl.appendChild(s)
+    }
+</script>
+
+<script type="module">
+import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+
+const countryRegions = {
+    'SE': 'nordic', 'NO': 'nordic', 'DK': 'nordic', 'FI': 'nordic', 'IS': 'nordic', 'EE': 'nordic', 'LV': 'nordic', 'LT': 'nordic',
+    'UA': 'east', 'MD': 'east', 'PL': 'east', 'RO': 'east', 'RS': 'east', 'HR': 'east', 'SI': 'east', 
+    'BA': 'east', 'MK': 'east', 'ME': 'east', 'AL': 'east', 'BG': 'east', 'RU': 'east', 'AM': 'east', 
+    'GE': 'east', 'AZ': 'east', 'CZ': 'east', 'SK': 'east', 'HU': 'east', 'BY': 'east',
+    'DE': 'west', 'FR': 'west', 'GB': 'west', 'UK': 'west', 'NL': 'west', 'BE': 'west', 'CH': 'west', 
+    'AT': 'west', 'IE': 'west', 'LU': 'west', 'MC': 'west',
+    'IT': 'south', 'ES': 'south', 'PT': 'south', 'MT': 'south', 'IL': 'south', 'CY': 'south', 'GR': 'south', 'SM': 'south', 'TR': 'south',
+    'AU': 'other', 'MA': 'other'
+};
+
+const regionColor = d3.scaleOrdinal()
+    .domain(['nordic', 'east', 'west', 'south', 'other'])
+    .range(['#4ea8de', '#ff4d6d', '#70e000', '#ffb703', '#9d4edd']);
+
+const tooltip = document.getElementById('tooltip')
+const ttTitle = document.getElementById('tt-title')
+const ttBody  = document.getElementById('tt-body')
+
+const votes = await d3.json("eurovision-data/votes_final.json")
+
+const buildGraph = (threshold) => {
+    const pairMap = new Map()
+    const countryNames = {}
+    const countryTotalReceived = {}
+    const countryTotalGiven = {}
+
+    votes.forEach(d => {
+        if (d.from_country_iso2 === 'WLD') return
+        if (!d.total_points || d.total_points <= 0) return
+
+        const f = d.from_country_iso2, t = d.to_country_iso2
+        countryNames[f] = d.from_country
+        countryNames[t] = d.to_country
+        countryTotalReceived[t] = (countryTotalReceived[t] || 0) + d.total_points
+        countryTotalGiven[f]    = (countryTotalGiven[f]    || 0) + d.total_points
+
+        const key = [f, t].sort().join('|')
+        pairMap.set(key, (pairMap.get(key) || 0) + d.total_points)
+    })
+
+    const links = []
+    const nodeSet = new Set()
+
+    pairMap.forEach((value, key) => {
+        if (value < threshold) return
+        const [a, b] = key.split('|')
+        links.push({ source: a, target: b, value })
+        nodeSet.add(a)
+        nodeSet.add(b)
+    })
+
+    const nodes = [...nodeSet].map(id => ({
+        id,
+        name: countryNames[id] || id,
+        total: countryTotalReceived[id] || 0,
+        given: countryTotalGiven[id] || 0,
+        degree: links.filter(l => l.source === id || l.target === id).length
+    }))
+
+    return { nodes, links }
+}
+
+const svgEl = document.getElementById('graph-svg')
+const W = svgEl.clientWidth || 960
+const H = 680
+
+const svg = d3.select('#graph-svg')
+    .attr('viewBox', `0 0 ${W} ${H}`)
+
+const zoomG = svg.append('g').attr('class', 'zoom-g')
+svg.call(d3.zoom()
+    .scaleExtent([0.3, 3])
+    .on('zoom', e => zoomG.attr('transform', e.transform))
+)
+
+const linkWidthScale = d3.scaleLinear().range([1, 8])
+const linkOpacityScale = d3.scaleLinear().range([0.15, 0.8])
+const nodeRadiusScale  = d3.scaleLinear().range([2, 50])
+
+let simulation, sizeMode = 'total'
+
+const draw = (threshold) => {
+    const { nodes, links } = buildGraph(threshold)
+
+    const linkVals = links.map(l => l.value)
+    linkWidthScale.domain([d3.min(linkVals), d3.max(linkVals)])
+    linkOpacityScale.domain([d3.min(linkVals), d3.max(linkVals)])
+
+    const nodeVals = nodes.map(n => sizeMode === 'total' ? n.total : n.degree)
+    nodeRadiusScale.domain([d3.min(nodeVals), d3.max(nodeVals)])
+
+    zoomG.selectAll('*').remove()
+
+    if (simulation) simulation.stop()
+    simulation = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(links).id(d => d.id).distance(d => 180 - linkWidthScale(d.value) * 10))
+        .force('charge', d3.forceManyBody().strength(-300))
+        .force('center', d3.forceCenter(W / 2, H / 2))
+        .force('collision', d3.forceCollide(d => nodeRadiusScale(sizeMode === 'total' ? d.total : d.degree) + 4))
+
+    const link = zoomG.append('g').attr('class', 'links')
+        .selectAll('line')
+        .data(links)
+        .join('line')
+        .attr('stroke', '#00b4d8')
+        .attr('stroke-width', d => linkWidthScale(d.value))
+        .attr('stroke-opacity', d => linkOpacityScale(d.value))
+
+    const node = zoomG.append('g').attr('class', 'nodes')
+        .selectAll('g')
+        .data(nodes)
+        .join('g')
+        .call(d3.drag()
+            .on('start', (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y })
+            .on('drag',  (e, d) => { d.fx = e.x; d.fy = e.y })
+            .on('end',   (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null })
+        )
+
+    let selectedNode = null
+
+    node.on('click', function(event, d) {
+        event.stopPropagation()
+
+        if (selectedNode === d.id) {
+            selectedNode = null
+            node.select('circle').attr('fill-opacity', 0.75)
+            link.attr('stroke-opacity', l => linkOpacityScale(l.value))
+                .attr('stroke', '#00b4d8')
+        } else {
+            selectedNode = d.id
+            const connectedIds = new Set()
+            links.forEach(l => {
+                if (l.source.id === d.id) connectedIds.add(l.target.id)
+                if (l.target.id === d.id) connectedIds.add(l.source.id)
+            })
+
+            node.select('circle').attr('fill-opacity', n =>
+                n.id === d.id || connectedIds.has(n.id) ? 0.9 : 0.1
+            )
+            node.select('text').attr('opacity', n =>
+                n.id === d.id || connectedIds.has(n.id) ? 1 : 0.1
+            )
+
+            link.attr('stroke-opacity', l =>
+                l.source.id === d.id || l.target.id === d.id ? linkOpacityScale(l.value) : 0.03
+            ).attr('stroke', l =>
+                l.source.id === d.id || l.target.id === d.id ? '#fb8500' : '#00b4d8'
+            )
+        }
+    })
+    .on('mouseover', function(event, d) {
+        tooltip.style.display = 'block'
+
+        if (selectedNode && selectedNode !== d.id) {
+            const linkToSelected = links.find(l =>
+                (l.source.id === d.id && l.target.id === selectedNode) ||
+                (l.target.id === d.id && l.source.id === selectedNode)
+            )
+            if (linkToSelected) {
+                ttTitle.textContent = d.name
+                ttBody.innerHTML = `
+                    <div class="tt-row">Punkte an <span class="tt-val">${nodes.find(n => n.id === selectedNode)?.name}</span>:</div>
+                    <div class="tt-row" style="font-size:18px;color:#fb8500;font-weight:800;">${linkToSelected.value} pts</div>
+                `
+            } else {
+                tooltip.style.display = 'none'
+            }
+        } else {
+            ttTitle.textContent = d.name
+            ttBody.innerHTML = `
+                <div class="tt-row">Erhaltene Punkte: <span class="tt-val">${d.total.toLocaleString()}</span></div>
+                <div class="tt-row">Gegebene Punkte: <span class="tt-val">${d.given.toLocaleString()}</span></div>
+                <div class="tt-row">Verbindungen: <span class="tt-val">${d.degree}</span></div>
+            `
+            link.attr('stroke-opacity', l =>
+                l.source.id === d.id || l.target.id === d.id ? 1 : 0.04
+            ).attr('stroke', l =>
+                l.source.id === d.id || l.target.id === d.id ? '#fb8500' : '#00b4d8'
+            )
+        }
+        d3.select(this).select('circle').attr('stroke', '#fff').attr('stroke-width', 2.5)
+    })
+    // FIX COORDONNÉES FLUIDES ET FIXES
+    .on('mousemove', function(event) {
+        tooltip.style.left = (event.pageX + 15) + 'px'
+        tooltip.style.top  = (event.pageY + 15) + 'px'
+    })
+    .on('mouseout', function(event, d) {
+        tooltip.style.display = 'none'
+        d3.select(this).select('circle').attr('stroke', 'rgba(255,255,255,0.3)').attr('stroke-width', 1)
+
+        if (!selectedNode) {
+            link.attr('stroke-opacity', l => linkOpacityScale(l.value))
+                .attr('stroke', '#00b4d8')
+        }
+    })
+
+    node.append('circle')
+        .attr('r', d => nodeRadiusScale(sizeMode === 'total' ? d.total : d.degree))
+        .attr('fill', d => regionColor(countryRegions[d.id] || 'other'))
+        .attr('fill-opacity', 0.75)
+        .attr('stroke', 'rgba(255,255,255,0.3)')
+        .attr('stroke-width', 1)
+        .style('cursor', 'grab')
+
+    node.append('text')
+        .attr('class', 'node-label')
+        .attr('text-anchor', 'middle')
+        .attr('dy', '0.35em')
+        .attr('font-size', d => Math.min(nodeRadiusScale(sizeMode === 'total' ? d.total : d.degree) * 0.65, 11))
+        .attr('fill', '#fff')
+        .attr('font-weight', '600')
+        .text(d => d.id)
+
+    simulation.on('tick', () => {
+        link
+            .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x).attr('y2', d => d.target.y)
+        node.attr('transform', d => `translate(${d.x},${d.y})`)
+    })
+
+    svg.on('click', () => {
+        selectedNode = null
+        node.select('circle').attr('fill-opacity', 0.75)
+        node.select('text').attr('opacity', 1)
+        link.attr('stroke-opacity', l => linkOpacityScale(l.value))
+            .attr('stroke', '#00b4d8')
+    })
+}
+
+const geoClusters = {
+    'SE': 1, 'NO': 1, 'DK': 1, 'FI': 1, 'IS': 1, 'EE': 1, 'LV': 1, 'LT': 1,
+    'UA': 2, 'MD': 2, 'PL': 2, 'RO': 2, 'RS': 2, 'HR': 2, 'SI': 2, 'BA': 2, 'MK': 2, 'ME': 2, 'AL': 2, 'GR': 2, 'CY': 2, 'BG': 2, 'RU': 2, 'AM': 2, 'GE': 2, 'AZ': 2,
+    'DE': 3, 'FR': 3, 'GB': 3, 'UK': 3, 'NL': 3, 'BE': 3, 'CH': 3, 'AT': 3, 'IE': 3, 'LU': 3,
+    'IT': 4, 'ES': 4, 'PT': 4, 'MT': 4, 'IL': 4, 'AU': 4, 'SM': 4
+};
+
+const clusterCenters = {
+    1: { x: W * 0.5, y: H * 0.25 },
+    2: { x: W * 0.75, y: H * 0.5 },
+    3: { x: W * 0.25, y: H * 0.5 },
+    4: { x: W * 0.5, y: H * 0.75 }
+};
+
+let currentThreshold = 300
+draw(currentThreshold)
+
+document.getElementById('threshold').addEventListener('input', function() {
+    currentThreshold = +this.value
+    document.getElementById('threshold-val').textContent = this.value
+    draw(currentThreshold)
+})
+
+document.getElementById('size-total').addEventListener('click', function() {
+    sizeMode = 'total'
+    this.classList.add('active')
+    document.getElementById('size-degree').classList.remove('active')
+    draw(currentThreshold)
+})
+
+document.getElementById('size-degree').addEventListener('click', function() {
+    sizeMode = 'degree'
+    this.classList.add('active')
+    document.getElementById('size-total').classList.remove('active')
+    draw(currentThreshold)
+})
+
+document.getElementById('cluster-geo').addEventListener('click', function() {
+    this.classList.add('active');
+    document.getElementById('cluster-votes').classList.remove('active');
+
+    if (!simulation) return;
+
+    simulation.force('center', null);
+    
+    const geoCenters = {
+        'nordic': { x: W * 0.5,  y: H * 0.23 },
+        'east':   { x: W * 0.78, y: H * 0.5 },
+        'west':   { x: W * 0.22, y: H * 0.5 },
+        'south':  { x: W * 0.5,  y: H * 0.77 },
+        'other':  { x: W * 0.5,  y: H * 0.5 }
+    };
+
+    simulation.force('x', d3.forceX(d => {
+        const reg = countryRegions[d.id] || 'other';
+        return geoCenters[reg].x;
+    }).strength(0.18));
+
+    simulation.force('y', d3.forceY(d => {
+        const reg = countryRegions[d.id] || 'other';
+        return geoCenters[reg].y;
+    }).strength(0.18));
+
+    simulation.alpha(1).restart();
+});
+
+document.getElementById('cluster-votes').addEventListener('click', function() {
+    this.classList.add('active');
+    document.getElementById('cluster-geo').classList.remove('active');
+
+    if (!simulation) return;
+
+    simulation.force('x', null);
+    simulation.force('y', null);
+    simulation.force('center', d3.forceCenter(W / 2, H / 2));
+
+    simulation.force('link').distance(l => {
+        return Math.max(30, 250 - (l.value / 3)); 
+    }).strength(l => {
+        return Math.min(1, l.value / 1000); 
+    });
+
+    simulation.alpha(1).restart();
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+    document.getElementById('cluster-geo').classList.remove('active');
+    document.getElementById('cluster-votes').classList.remove('active');
+
+    svg.transition().duration(400).call(
+        d3.zoom().transform, d3.zoomIdentity
+    )
+    draw(currentThreshold);
+})
+</script>
+</body></html>

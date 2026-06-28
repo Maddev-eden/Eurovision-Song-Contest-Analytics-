@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>Heatmap — Eurovision</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; overflow: visible; }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #03101e;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 60px 24px;
+            gap: 32px;
+            min-height: 100vh;
+        }
+        #stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+        .star { position: absolute; border-radius: 50%; background: #fff; animation: twinkle var(--d,3s) ease-in-out infinite alternate; opacity: var(--o,.4); }
+        @keyframes twinkle { to { opacity: 0.05; } }
+
+        .header { position: relative; z-index: 1; text-align: center; }
+        .header h1 {
+            font-size: clamp(1.6rem, 4vw, 2.4rem);
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff 0%, #00b4d8 60%, #fb8500 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .header p { font-size: 0.85rem; color: rgba(255,255,255,0.5); margin-top: 8px; }
+        .accent-bar { width: 48px; height: 3px; background: linear-gradient(90deg,#fb8500,#00b4d8); border-radius: 2px; margin: 12px auto 0; }
+
+        /* TOOLTIP CORRIGÉ ET STABILISÉ */
+        #tooltip {
+            position: absolute; /* Reste fluide avec event.pageX/Y sans être bloqué par le fixed */
+            background: #001d3d;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 12px;
+            pointer-events: none !important; /* CRUCIAL : supprime les micro-coupures de détection */
+            display: none;
+            z-index: 99999;
+            min-width: 160px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+        #tooltip .tt-country { font-weight: 700; font-size: 14px; color: #fb8500; margin-bottom: 4px; }
+        #tooltip .tt-row { color: rgba(255,255,255,0.7); }
+        #tooltip .tt-val { color: #fff; font-weight: 600; }
+
+        #chart-container {
+            position: relative;
+            z-index: 1;
+            background: rgba(0,29,61,0.5);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 20px;
+            padding: 24px;
+            overflow-x: auto;
+        }
+
+        .legend-wrap {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+        }
+        .legend-wrap svg { border-radius: 4px; }
+
+        .home-btn {
+            position: fixed; top: 20px; left: 20px; z-index: 10;
+            background: rgba(0,29,61,0.8); border: 1px solid rgba(255,255,255,0.1);
+            color: #fff; padding: 8px 16px; border-radius: 20px;
+            font-family: 'Poppins', sans-serif; font-size: 12px; cursor: pointer;
+            text-decoration: none; display: flex; align-items: center; gap: 8px;
+            transition: background 0.2s;
+        }
+        .home-btn:hover { background: #001d3d; }
+
+        .axis text { font-family: 'Poppins', sans-serif; }
+        .viz-description { position: relative; z-index: 1; max-width: 860px; width: 90%; margin: 0 auto; background: rgba(0,29,61,0.6); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid #fb8500; border-radius: 12px; padding: 24px 28px; display: flex; flex-direction: column; gap: 14px; }
+        .vd-title { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #fb8500; }
+        .vd-text { font-size: 13px; line-height: 1.75; color: rgba(255,255,255,0.65); }
+        .vd-tips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .vd-tip { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.05); border-radius: 20px; padding: 5px 12px; font-size: 11px; color: rgba(255,255,255,0.55); }
+        .vd-tip i { color: #00b4d8; font-size: 11px; }
+
+        /* Ignorer les interférences souris sur les points blancs pour éviter les clignotements */
+        circle.win {
+            pointer-events: none !important;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="btn-back" style="
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        background-color: #001d3d;
+        color: #ffffff;
+        text-decoration: none;
+        border-radius: 6px;
+        font-family: 'Poppins', sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+        border: 1px solid #00b4d8;
+        z-index: 9999;
+        transition: all 0.2s ease-in-out;
+    " onmouseover="this.style.backgroundColor='#00b4d8'; this.style.borderColor='#fb8500';" onmouseout="this.style.backgroundColor='#001d3d'; this.style.borderColor='#00b4d8';">
+        <i class="fa-solid fa-arrow-left"></i> Zurück zur Startseite
+    </a>
+
+<div id="stars"></div>
+<a href="index.html" class="home-btn"><i class="fa-solid fa-arrow-left"></i> Startseite</a>
+<div id="tooltip">
+    <div class="tt-country" id="tt-country"></div>
+    <div class="tt-row">Jahr: <span class="tt-val" id="tt-year"></span></div>
+    <div class="tt-row">Platz: <span class="tt-val" id="tt-place"></span></div>
+</div>
+
+<div class="header">
+    <h1>Dominanz über die Zeit</h1>
+    <p>Jede Zelle = ein Land in einem Jahr · Farbe = Finalplatzierung</p>
+    <div class="accent-bar"></div>
+</div>
+
+<div class="viz-description">
+    <div class="vd-title">💡 So funktioniert diese Visualisierung</div>
+    <div class="vd-text">
+        Diese <strong style="color:#fff">Heatmap</strong> zeigt die Finalplatzierungen aller Länder von 1956 bis 2026.
+        Jede <strong style="color:#fb8500">Zelle</strong> steht für ein Land in einem bestimmten Jahr.
+        Die Farbe zeigt den erreichten Finalplatz: <strong style="color:#fb8500">Orange = Platz 1 (Sieg)</strong>,
+        <strong style="color:#003566">Dunkelblau = hinterer Platz</strong>. Leere/dunkle Zellen bedeuten, das Land war in diesem Jahr nicht im finale.
+        Ein <strong style="color:#fff">weißer Punkt</strong> markiert den Jahressieger.
+        So lassen sich historische Dominanzphasen einzelner Länder auf einen Blick erkennen.
+    </div>
+    <div class="vd-tips">
+        <div class="vd-tip"><i class="fa-solid fa-hand-pointer"></i> Zelle hovern → Details anzeigen</div>
+        <div class="vd-tip"><i class="fa-solid fa-circle" style="color:#fff;font-size:8px"></i> Weißer Punkt → Jahressieger</div>
+        <div class="vd-tip"><i class="fa-solid fa-left-right"></i> Horizontal scrollen → alle Jahre sehen</div>
+        <div class="vd-tip"><i class="fa-solid fa-sort"></i> Länder sortiert nach Gesamtzahl der Finalteilnahmen</div>
+    </div>
+</div>
+
+<div id="chart-container"></div>
+
+<div class="legend-wrap">
+    <span>Platz 1 (Sieg)</span>
+    <div id="legend-svg"></div>
+    <span>Nicht im Finale</span>
+</div>
+
+<script>
+    const container = document.getElementById('stars')
+    for (let i = 0; i < 120; i++) {
+        const s = document.createElement('div')
+        s.className = 'star'
+        const size = Math.random() * 2.5 + 0.5
+        s.style.cssText = `width:${size}px;height:${size}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--d:${(Math.random()*4+2).toFixed(1)}s;--o:${(Math.random()*0.5+0.1).toFixed(2)};animation-delay:${(Math.random()*4).toFixed(1)}s;`
+        container.appendChild(s)
+    }
+</script>
+
+<script type="module">
+import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+
+const tooltip   = document.getElementById('tooltip')
+const ttCountry = document.getElementById('tt-country')
+const ttYear    = document.getElementById('tt-year')
+const ttPlace   = document.getElementById('tt-place')
+
+d3.json("eurovision-data/entries.json").then(raw => {
+
+    // Garde seulement les finalistes avec un rang
+    const data = raw.filter(d => d.is_finalist && d.final_place !== null)
+
+    // Tous les pays triés par nombre de participations (desc)
+    const countryCounts = d3.rollup(data, v => v.length, d => d.country)
+    const countries = Array.from(countryCounts.keys())
+        .sort((a,b) => countryCounts.get(b) - countryCounts.get(a))
+
+    const years = [...new Set(data.map(d => d.year))].sort()
+
+    // Map rapide year+country → place
+    const lookup = new Map()
+    data.forEach(d => lookup.set(`${d.year}_${d.country}`, d.final_place))
+
+    // Dimensions
+    const cellW  = 12
+    const cellH  = 14
+    const marginL = 110
+    const marginT = 40
+    const marginB = 30
+    const marginR = 20
+
+    const width  = marginL + years.length * cellW + marginR
+    const height = marginT + countries.length * cellH + marginB
+
+    const svg = d3.create("svg")
+        .attr("width", width)
+        .attr("height", height)
+
+    const xScale = d3.scaleBand()
+        .domain(years)
+        .range([marginL, marginL + years.length * cellW])
+        .padding(0.05)
+
+    const yScale = d3.scaleBand()
+        .domain(countries)
+        .range([marginT, marginT + countries.length * cellH])
+        .padding(0.05)
+
+    // Couleur : 1 = or chaud, 25 = bleu sombre, null = très sombre
+    const colorScale = d3.scaleSequential()
+        .domain([1, 26])
+        .interpolator(t => d3.interpolateRgb("#fb8500", "#003566")(t))
+
+    // Cellules
+    const cells = []
+    countries.forEach(country => {
+        years.forEach(year => {
+            const place = lookup.get(`${year}_${country}`)
+            cells.push({ year, country, place: place ?? null })
+        })
+    })
+
+    svg.selectAll("rect.cell")
+        .data(cells)
+        .join("rect")
+        .attr("class", "cell")
+        .attr("x", d => xScale(d.year))
+        .attr("y", d => yScale(d.country))
+        .attr("width", xScale.bandwidth())
+        .attr("height", yScale.bandwidth())
+        .attr("rx", 1)
+        .attr("fill", d => d.place ? colorScale(d.place) : "#0a1628")
+        .attr("opacity", d => d.place ? 1 : 0.3)
+        .style("cursor", "pointer")
+        .on("mouseover", function(event, d) {
+            tooltip.style.display = "block"
+            ttCountry.textContent = d.country
+            ttYear.textContent    = d.year
+            ttPlace.textContent   = d.place ? `#${d.place}` : "Nicht im Finale"
+            d3.select(this).attr("stroke", "#fff").attr("stroke-width", 1.5)
+        })
+        .on("mousemove", function(event) {
+            tooltip.style.left = (event.pageX + 15) + "px"
+            tooltip.style.top  = (event.pageY + 15) + "px"
+        })
+        .on("mouseout", function() {
+            tooltip.style.display = "none"
+            d3.select(this).attr("stroke", null)
+        })
+
+    // Marque les victoires avec un point blanc (conservé intact)
+    svg.selectAll("circle.win")
+        .data(cells.filter(d => d.place === 1))
+        .join("circle")
+        .attr("class", "win")
+        .attr("cx", d => xScale(d.year) + xScale.bandwidth() / 2)
+        .attr("cy", d => yScale(d.country) + yScale.bandwidth() / 2)
+        .attr("r", 2)
+        .attr("fill", "#fff")
+
+    // Axe X — années
+    const xAxis = svg.append("g")
+        .attr("transform", `translate(0, ${marginT - 4})`)
+        .call(d3.axisTop(xScale)
+            .tickValues(years.filter(y => y % 5 === 0))
+            .tickSize(0)
+        )
+    xAxis.select(".domain").remove()
+    xAxis.selectAll("text")
+        .attr("fill", "rgba(255,255,255,0.5)")
+        .attr("font-size", "9px")
+        .attr("font-family", "Poppins")
+
+    // Axe Y — pays
+    const yAxis = svg.append("g")
+        .attr("transform", `translate(${marginL - 4}, 0)`)
+        .call(d3.axisLeft(yScale).tickSize(0))
+    yAxis.select(".domain").remove()
+    yAxis.selectAll("text")
+        .attr("fill", "rgba(255,255,255,0.75)")
+        .attr("font-size", "9px")
+        .attr("font-family", "Poppins")
+        .attr("text-anchor", "end")
+
+    document.getElementById("chart-container").appendChild(svg.node())
+
+    // Légende
+    const legW = 180, legH = 12
+    const legSvg = d3.create("svg").attr("width", legW).attr("height", legH)
+    const defs = legSvg.append("defs")
+    const grad = defs.append("linearGradient").attr("id", "leg-grad")
+    d3.range(11).forEach(i => {
+        grad.append("stop")
+            .attr("offset", `${i*10}%`)
+            .attr("stop-color", colorScale(1 + i * 2.5))
+    })
+    legSvg.append("rect").attr("width", legW).attr("height", legH).attr("rx", 3)
+        .style("fill", "url(#leg-grad)")
+    document.getElementById("legend-svg").appendChild(legSvg.node())
+})
+</script>
+</body>
+</html>

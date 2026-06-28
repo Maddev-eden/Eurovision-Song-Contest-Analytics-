@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<title>Europe Map Dashboard</title>
+<style>
+    * {
+        box-sizing: border-box;
+    }
+    body { 
+        font-family: 'Poppins', sans-serif;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        color: #ffffff;
+        padding: 60px 20px;
+        gap: 40px;
+        background: #020913;
+        min-height: 100vh;
+    }
+
+    /* Style du bouton retour */
+    .btn-back {
+        position: absolute;
+        top: 25px;
+        left: 25px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 18px;
+        background-color: rgba(0, 29, 61, 0.6);
+        color: #ffffff;
+        text-decoration: none;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        border: 1px solid rgba(0, 180, 216, 0.4);
+        backdrop-filter: blur(8px);
+        z-index: 9999;
+        transition: all 0.25s ease;
+    }
+    .btn-back:hover {
+        background-color: #00b4d8;
+        border-color: #fb8500;
+        box-shadow: 0 0 15px rgba(0, 180, 216, 0.4);
+        transform: translateY(-2px);
+    }
+
+    /* Description Box haute avec marge de sécurité renforcée pour l'overflow */
+    .viz-description { 
+        position: relative; 
+        z-index: 100; 
+        max-width: 1150px; 
+        width: 100%; 
+        background: rgba(0, 29, 61, 0.45); 
+        border: 1px solid rgba(255, 255, 255, 0.06); 
+        border-left: 4px solid #fb8500; 
+        border-radius: 12px; 
+        padding: 24px; 
+        display: flex; 
+        flex-direction: column; 
+        gap: 14px;
+        backdrop-filter: blur(10px);
+        margin-bottom: 40px; /* Grand espace pour encaisser l'overflow de la carte */
+    }
+    .vd-title { font-size: 14px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #fb8500; }
+    .vd-text { font-size: 13.5px; line-height: 1.7; color: rgba(255, 255, 255, 0.75); }
+    .vd-tips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px; }
+    .vd-tip { display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255,255,255,0.03); border-radius: 30px; padding: 6px 14px; font-size: 11.5px; color: rgba(255, 255, 255, 0.65); }
+    .vd-tip i { color: #00b4d8; font-size: 12px; }
+
+    /* Zone principale Dashboard */
+    #svg_container {
+        display: flex;
+        gap: 50px; 
+        align-items: center; 
+        justify-content: center;
+        position: relative;
+        max-width: 1150px;
+        width: 100%;
+        z-index: 10;
+    }
+    
+    /* Autorise explicitement la carte et ses paths à déborder du cadre SVG */
+    #card, #card * {
+        overflow: visible !important;
+    }
+    #card {
+        background: rgba(0, 29, 61, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 30px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        width: 550px; 
+        height: 520px;
+    }
+    
+    #line {
+        background: rgba(0, 29, 61, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 20px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        width: 520px; 
+        height: 260px; /* Gardé à mi-hauteur */
+    }
+
+    path { cursor: pointer; transition: opacity 0.2s ease; }
+    .side_panel { display: flex; flex-direction: column; justify-content: center; }
+
+    /* Bulle de survol (Tooltip) */
+    #pointer {
+        font-family: 'Poppins', sans-serif;
+        font-weight: 500;
+        font-size: 12.5px;
+        background-color: rgba(0, 29, 61, 0.95);
+        color: #fff;
+        padding: 8px 16px;
+        border-radius: 6px;
+        display: none;
+        position: absolute;
+        z-index: 99999; 
+        pointer-events: none;
+        border: 1px solid rgba(0, 180, 216, 0.5);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+        backdrop-filter: blur(5px);
+    }
+
+    /* Section unifiée des contrôles */
+    .controller_container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        max-width: 1150px;
+        width: 100%;
+        z-index: 20;
+        margin-top: 50px;
+    }
+    .controller_container .text {
+        font-size: 15px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        color: rgba(255,255,255,0.9);
+    }
+    
+    /* Boutons de sélection */
+    .controller {
+        border-radius: 12px;
+        padding: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        width: 100%;
+        max-width: 900px;
+        background-color: rgba(0, 29, 61, 0.6);
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    .controller .interaction {
+        border: none;
+        border-radius: 8px;
+        font-size: 12px;
+        color: rgba(255,255,255,0.7);
+        background: transparent;
+        font-family: 'Poppins', sans-serif;
+        font-weight: 500;
+        height: 44px;
+        cursor: pointer;
+        flex: 1;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .controller .interaction:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.05);
+    }
+    .controller .interaction.active {
+        background: linear-gradient(135deg, #00b4d8, #003566);
+        color: #fff;
+        box-shadow: 0 4px 12px rgba(0, 180, 216, 0.2);
+        font-weight: 600;
+    }
+    .controller .fa-solid {
+        color: rgba(255,255,255,0.2);
+        font-size: 12px;
+    }
+
+    /* Légendes horizontales */
+    #legends-box {
+        display: flex;
+        flex-direction: row; 
+        align-items: center;
+        justify-content: space-around; 
+        gap: 20px;
+        background-color: rgba(0, 29, 61, 0.4);
+        border: 1px solid rgba(255,255,255,0.05);
+        padding: 15px 25px;
+        border-radius: 14px;
+        width: 100%;
+        max-width: 900px;
+    }
+
+    /* Panneau descriptif inférieur */
+    #describer {
+        background-color: rgba(0, 29, 61, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        color: #fff;
+        padding: 30px;
+        max-width: 1150px;
+        width: 100%;
+        border-radius: 12px;
+        z-index: 20;
+        margin-top: 15px;
+    }
+    #titel {
+        font-size: 16px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 12px;
+        color: #fb8500;
+        font-weight: 600;
+    }
+    #description {
+        font-size: 13.5px;
+        line-height: 1.6;
+        color: rgba(255,255,255,0.75);
+    }
+
+    /* Arrière-plan étoiles */
+    #stars {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        overflow: hidden;
+    }
+    .star {
+        position: absolute;
+        border-radius: 50%;
+        background: #fff;
+        animation: twinkle var(--d, 3s) ease-in-out infinite alternate;
+        opacity: var(--o, 0.4);
+    }
+    @keyframes twinkle { to { opacity: 0.05; } }
+
+    .center { position: absolute; z-index: 2; pointer-events: none; }
+</style>
+</head>
+<body>
+    <a href="index.html" class="btn-back">
+        <i class="fa-solid fa-arrow-left"></i> Zurück zur Startseite
+    </a>
+
+<div id="stars"></div>
+<div id="pointer">Russia</div>
+
+<div class="viz-description">
+    <div class="vd-title">💡 So funktioniert diese Visualisierung</div>
+    <div class="vd-text">
+        Dieses <strong style="color:#fff">Liniendiagramm</strong> zeigt die Entwicklung der <strong style="color:#fb8500">Gesamtpunktzahl</strong> eines Landes über die Zeit.
+        Durch Klicken auf ein Land auf der Karte erscheint automatisch dessen historische Kurve — gefiltert nach der gewählten Zeitperiode.
+        So lässt sich auf einen Blick erkennen, ob ein Land an Dominanz gewonnen oder verloren hat, und in welcher Ära es am stärksten war.
+        Die Y-Achse ist auf 650 Punkte fixiert, um alle Epochen direkt vergleichen zu können.
+    </div>
+    <div class="vd-tips">
+        <div class="vd-tip"><i class="fa-solid fa-map"></i> Land anklicken → Kurve laden</div>
+        <div class="vd-tip"><i class="fa-solid fa-calendar"></i> Zeitperiode wechseln → Kurve filtert sich</div>
+        <div class="vd-tip"><i class="fa-solid fa-chart-line"></i> Orangene Linie → Gesamtpunkte</div>
+        <div class="vd-tip"><i class="fa-solid fa-triangle-exclamation"></i> Keine Daten = Nicht im Finale</div>
+    </div>
+</div>
+
+<div id="svg_container"></div>
+
+<div class="controller_container">
+    <div class="text">Welche Zeitspanne willst du betrachten ?</div>
+    <div class="controller">
+        <button class="interaction active" id="era-early-years" value="1956-1974">1956 - 1974</button>
+        <i class="fa-solid fa-chevron-right"></i>
+        
+        <button class="interaction" id="era-classic-12points" value="1975-1996">1975 - 1996</button>
+        <i class="fa-solid fa-chevron-right"></i>
+        
+        <button class="interaction" id="era-televote-hybrid" value="1997-2015">1997 - 2015</button>
+        <i class="fa-solid fa-chevron-right"></i>
+        
+        <button class="interaction" id="era-modern-split" value="2016-2026">2016 - 2026</button>
+    </div>
+    
+    <div id="legends-box"></div>
+</div>
+
+<div id="describer">
+    <div id="titel">1956 - 1974: Die Anfänge & Wechselnde Systeme</div>
+    <div id="description">Diese Ära war durch nationale Jurys geprägt, deren Abstimmungsformate sich fast jährlich änderten, da es noch kein stabile, standardisierte Punktesystem gab.</div>
+</div>
+
+<script>
+    const container = document.getElementById('stars')
+    for (let i = 0; i < 120; i++) {
+        const s = document.createElement('div')
+        s.className = 'star'
+        const size = Math.random() * 2 + 0.5
+        s.style.cssText = `
+            width: ${size}px;
+            height: ${size}px;
+            top: ${Math.random() * 100}%;
+            left: ${Math.random() * 100}%;
+            --d: ${(Math.random() * 4 + 2).toFixed(1)}s;
+            --o: ${(Math.random() * 0.5 + 0.1).toFixed(2)};
+            animation-delay: ${(Math.random() * 4).toFixed(1)}s;
+        `
+        container.appendChild(s)
+    }
+</script>
+
+<script type="module">
+import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+window.d3 = d3;
+
+const informations = {};
+
+const avarage = (intArray) => {
+    const tab = intArray.filter(d => d !== null && d !== undefined)
+    if (tab.length === 0) return 0
+    const mean = tab.reduce((acc, val) => acc + val, 0) / tab.length
+    return Math.round(mean)
+}
+
+const filterdate = (entries, fromDate, toDate)=>{
+    return entries.filter( item => item.year >= fromDate && item.year <= toDate )
+}
+
+const getFrequencyOfWin = (data, id) => {
+    const filtered = data.filter(d => d["country_iso2"] == id && d.final_place == 1);
+    return filtered.length;
+};
+
+const getHistory = (data,landIdentifier,parameter)=>{
+    const history = data.map((d)=>{
+            return {
+                year: d.year,
+                [parameter]: d[parameter],
+                landID: d.country_iso2,
+                name: d.country
+            }
+    });
+    const filtered = history.filter(d=> (d.landID == landIdentifier && d[parameter] !== null ));
+    if (filtered.length === 0) return null;
+    return {
+        Land: {
+            landID: filtered[0].landID,
+            name: filtered[0].name,
+            parameter: parameter
+        },
+        lineData: filtered.map((d)=>{
+            return {
+                year: d.year,
+                [parameter]: d[parameter]
+            }
+        })
+    }
+}
+
+// CORRECTION : Prise en compte réelle de la hauteur (260px) avec des axes adaptés
+const createLineDiagram = (lineData,countryName,parameter,parameterName,width,Height,fromDate,toDate)=>{
+    const lineOnPeriod = filterdate(lineData,fromDate,toDate)
+    // Marges recalculées pour laisser de la place aux textes sans écraser la courbe
+    const m = 60
+    const margin = { top : m, bottom : m, left : m, right : m }
+    const innerWidth = width - margin.left - margin.right
+    const innerHeight = Height - margin.top - margin.bottom
+
+    const svg = d3.create("svg")
+                .attr("width",width)
+                .attr("height",Height)
+                .attr("id","line");
+
+    const inner = svg.append("g")
+                    .attr("class","inner")
+                    .attr("transform",`translate(${margin.left/2},${margin.top/2})`)
+
+    if (lineOnPeriod.length === 0) {
+        inner.append("text")
+            .text(`No Data for the period ${fromDate}-${toDate}`)
+            .attr("fill", "rgba(255,255,255,0.5)")
+            .attr("font-size", "12px")
+            .attr("text-anchor", "middle")
+            .attr("transform", `translate(${innerWidth/2},${innerHeight/2})`);
+        return svg.node();
+    }
+
+    const xScale = d3.scaleLinear()
+                .domain(d3.extent(lineOnPeriod, d => d.year))
+                .range([0,innerWidth]);
+    const yScale = d3.scaleLinear()
+                .domain([0,650])
+                .range([innerHeight,0]);
+    
+    const line = d3.line()
+                .x(d=> xScale(d.year))
+                .y(d=> yScale(d[parameter]));
+
+    inner.append("g")
+        .attr("class", "grid")
+        .attr("opacity", 0.05)
+        .call(d3.axisLeft(yScale).tickSize(-innerWidth).tickFormat(""));
+
+    inner.append("path")
+        .datum(lineOnPeriod)
+        .attr("d",line)
+        .attr("fill","none")
+        .attr("stroke", "#fb8500")
+        .attr("stroke-width", 2.5);
+
+    const axisColor ="rgba(255,255,255,0.6)"
+   
+    inner.append("text")
+        .text(`${countryName}`)
+        .attr("fill", "#fff")
+        .attr("font-weight", "600")
+        .attr("font-size", "13px")
+        .attr("transform", `translate(${innerWidth - 5}, -10)`) // Placé proprement au dessus
+        .attr("text-anchor", "end");
+
+    const axisX = inner.append("g")
+        .attr("class","axis")
+        .attr("transform",`translate(0,${innerHeight})`)
+        .call(d3.axisBottom(xScale).ticks(5, "d"))
+    
+    // Moins de ticks verticaux pour éviter les chevauchements sur 260px de haut
+    const axisY = inner.append("g")
+        .attr("class","axis")
+        .call(d3.axisLeft(yScale).ticks(4))
+
+    axisX.selectAll("path, line").attr("stroke", "rgba(255,255,255,0.15)");
+    axisX.selectAll("text").attr("fill", axisColor).attr("font-family", "Poppins").attr("font-size", "10px"); 
+    axisY.selectAll("path, line").attr("stroke", "rgba(255,255,255,0.15)");
+    axisY.selectAll("text").attr("fill", axisColor).attr("font-family", "Poppins").attr("font-size", "10px");
+
+    return svg.node();
+}
+
+const deleteLine = ()=>{
+    d3.select("#line").remove();
+}
+
+// CORRECTION : Conteneur vide réadapté aux dimensions 520x260
+const createVoidDiagram = (countryName,width,Height)=>{
+    const margin = { top : 20, bottom : 20, left : 20, right : 20 }
+    const innerWidth = width - margin.left - margin.right
+    const innerHeight = Height - margin.top - margin.bottom
+
+    const svg = d3.create("svg")
+                .attr("width",width)
+                .attr("height",Height)
+                .attr("id","line");
+
+    const inner = svg.append("g")
+                    .attr("class","inner")
+                    .attr("transform",`translate(${margin.left},${margin.top})`)
+    inner.append("text")
+        .text(`Wähle ein Land auf der Karte`)
+        .attr("fill", "rgba(255,255,255,0.4)")
+        .attr("font-size", "13px")
+        .attr("text-anchor", "middle")
+        .attr("transform", `translate(${innerWidth/2},${innerHeight/2})`)
+    return svg.node()
+}
+
+const pointer = document.getElementById("pointer")
+const svgcontainer = document.getElementById("svg_container")
+const legendsBox = document.getElementById("legends-box")
+
+d3.json("eurovision-data/entries.json").then(dataLine => {
+
+    const uniqueIds = [...new Set(dataLine.map(d => d.country_iso2))];
+    uniqueIds.forEach(id => {
+        informations[id] = { wins: getFrequencyOfWin(dataLine, id) };
+    });
+
+    const createColorLegend = (colorScale) => {
+        const width = 420;
+        const height = 75; 
+        const margin = { top: 10, bottom: 25, left: 25, right: 25 };
+        const innerWidth = width - margin.left - margin.right;
+
+        const svg = d3.create("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .attr("id", "color-legend");
+
+        const defs = svg.append("defs");
+        const linearGradient = defs.append("linearGradient")
+            .attr("id", "color-legend-gradient");
+
+        const steps = 10;
+        d3.range(steps + 1).forEach(i => {
+            linearGradient.append("stop")
+                .attr("offset", `${(i / steps) * 100}%`)
+                .attr("stop-color", colorScale(
+                    Math.exp(
+                        Math.log(colorScale.domain()[0]) + 
+                        (i / steps) * (Math.log(colorScale.domain()[1]) - Math.log(colorScale.domain()[0]))
+                    )
+                ));
+        });
+
+        const g = svg.append("g").attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+        g.append("rect")
+            .attr("width", innerWidth)
+            .attr("height", 12)
+            .style("fill", "url(#color-legend-gradient)")
+            .attr("rx", 4);
+
+        const [minVal, maxVal] = colorScale.domain();
+        const xScale = d3.scaleLog().domain([minVal, maxVal]).range([0, innerWidth]);
+
+        const axis = g.append("g")
+            .attr("transform", "translate(0, 20)")
+            .call(d3.axisBottom(xScale).ticks(4, ".0f"));
+
+        axis.selectAll("path, line").attr("stroke", "rgba(255,255,255,0.2)");
+        axis.selectAll("text").attr("fill", "rgba(255,255,255,0.6)").attr("font-size", "10px").attr("font-family", "Poppins");
+
+        svg.append("text")
+            .attr("x", width / 2)
+            .attr("y", height - 2)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#ffffff")
+            .attr("font-size", "11px")
+            .attr("font-family", "Poppins")
+            .attr("font-weight", "500")
+            .text("Gewinnhäufigkeit (Anzahl Siege)");
+
+        return svg.node();
+    }
+
+    const mapSvg = (d3projection, map, centerX, centerY, scaleFactor=5, width=800, height=800) => {
+        const svg = d3.create("svg")
+            .attr('width', width)
+            .attr('height', height)
+            .attr("id","card")
+            .attr("class", "map")
+
+        const projection = d3projection
+            .center([centerX, centerY])
+            .translate([width/2, height/2])
+            .scale(width * scaleFactor)
+
+        const path = d3.geoPath().projection(projection)
+
+        const color = d3.scaleSequentialLog()
+            .domain(d3.extent(Object.values(informations), d => d.wins + 1))
+            .interpolator(d3.interpolateYlGnBu);
+
+        legendsBox.appendChild(createColorLegend(color));
+
+        const mapData = map.features.map((d, i) => {
+            const id = d.properties.ID || d.properties.id || d.properties.ID_LONG || d.properties.ISO_A2 || "";
+            const countryWins = informations[id] ? informations[id].wins : 0;
+            return {
+                d: path(d),
+                centroid: path.centroid(d),
+                fill: color(countryWins + 1),
+                name: d.properties.NAME || d.properties.name || d.properties.NAME_LONG || "",
+                id: id
+            }
+        })
+
+        let fromDate = 1956;
+        let toDate = 1974;
+        let currentID ="";
+
+        const buttons = document.querySelectorAll('.controller .interaction');
+
+        function getEraById(eraId) {
+            return eurovisionEras.find(item => item.id === eraId) || null;
+        }
+
+        const textTitle = document.getElementById('titel');
+        const textDescription = document.getElementById('description');
+
+        const eurovisionEras = [
+            { id: "era-early-years", value: "1956-1974", label: "1956 - 1974", name: "Die Anfänge & Wechselnde Systeme", description: "Diese Ära war durch nationale Jurys geprägt, deren Abstimmungsformate sich fast jährlich änderten, da es noch kein stabile, standardisierte Punktesystem gab." },
+            { id: "era-classic-12points", value: "1975-1996", label: "1975 - 1996", name: "Das klassische '12-Punkte'-System", description: "Einführung des ikonischen Wertungssystems, bei dem jedes Land seine berühmten 'Zwölf Punkte' (sowie 1 bis 8 und 10 Punkte) durch eine Expertenjury vergibt." },
+            { id: "era-televote-hybrid", value: "1997-2015", label: "1997 - 2015", name: "Die Tele-Voting-Ära & Hybride Systeme", description: "Massive Einführung der Publikumsabstimmung via Telefon und SMS. Ab 2009 entwickelten sich die Ergebnisse zu einem kombinierten System (50% Jury / 50% Tele-Voting)." },
+            { id: "era-modern-split", value: "2016-2026", label: "2016 - 2026", name: "Die getrennte Punktevergabe von Jury & Publikum", description: "Das aktuelle System: Die Punkte der Jurys und des Publikums werden komplett getrennt gezählt. Die Moderatoren verkünden die Zuschauerpunkte zentralisiert, um maximale Spannung zu garantieren." }
+        ];
+
+        function gererChangementPeriode(evenement) {
+            buttons.forEach(btn => btn.classList.remove('active'));
+            evenement.target.classList.add('active');
+
+            const plageAnnees = evenement.target.value;
+            const eraData = getEraById(evenement.target.getAttribute("id"))
+            const [anneeDebut, anneeFin] = plageAnnees.split('-').map(Number);
+            fromDate = anneeDebut
+            toDate = anneeFin
+
+            if (document.getElementById("line") && currentID) {
+                deleteLine()
+                const lineHistory = getHistory(dataLine,currentID,"final_total_points");
+                if (lineHistory) {
+                    document.getElementById("side-panel-node").appendChild(createLineDiagram(lineHistory.lineData,lineHistory.Land.name,lineHistory.Land.parameter,"final total points",520,260,fromDate,toDate))
+                } else {
+                    document.getElementById("side-panel-node").appendChild(createVoidDiagram(currentID, 520, 260))
+                }
+            }
+            if (eraData) {
+                textTitle.textContent = eraData.label+": "+eraData.name;
+                textDescription.textContent = eraData.description;
+            }
+            d3.selectAll(".center")
+            .transition()            
+            .duration(500) 
+            .attr('r', (d)=>{
+                try {
+                    const linestory = getHistory(dataLine,d.id,"final_total_points");
+                    if (!linestory) return 0;
+                    const valueCenter = filterdate(linestory.lineData,fromDate,toDate).map(el=>el["final_total_points"])
+                    return avarage(valueCenter)/10
+                } catch (error) {
+                    return 0
+                }
+            })
+        }
+
+        buttons.forEach(btn => btn.addEventListener('click', gererChangementPeriode));
+
+        const drawMap = (el) => {
+            el.selectAll('path')
+            .data(mapData)
+            .join('path')
+                .attr('d', d => d.d)
+                .style('fill', d => d.fill)
+                .style('stroke', 'rgba(255,255,255,0.3)')
+                .style('stroke-width', 0.6)
+                .on("click", function(event, d) {
+                    const isAlreadySelected = d3.select(this).attr("data-selected") === "true"
+                    if (isAlreadySelected) {
+                        el.selectAll("path").attr("opacity", 1)
+                        d3.select(this).attr("data-selected", "false")
+                    } else {
+                        el.selectAll("path").attr("opacity", 0.2).attr("data-selected", "false")
+                        d3.select(this).attr("opacity", 1).attr("data-selected", "true")
+                    }
+
+                    deleteLine()
+                    try {
+                        const lineHistory = getHistory(dataLine, d.id, "final_total_points")
+                        currentID = d.id
+                        if (lineHistory) {
+                            document.getElementById("side-panel-node").appendChild(createLineDiagram(lineHistory.lineData, lineHistory.Land.name, lineHistory.Land.parameter, "final total points", 520, 260, fromDate, toDate))
+                        } else {
+                            document.getElementById("side-panel-node").appendChild(createVoidDiagram(d.name, 520, 260))
+                        }
+                    } catch (error) {
+                        document.getElementById("side-panel-node").appendChild(createVoidDiagram(d.name, 520, 260))
+                    }
+                })
+                .on('mouseover', function(event,d) {
+                    pointer.style.display = 'block';
+                    const winsCount = informations[d.id] ? informations[d.id].wins : 0;
+                    pointer.textContent = `${d.name} (${winsCount} Sieg${winsCount > 1 ? 'e' : ''})`;
+                    d3.select(this).style('stroke', '#00b4d8').style('stroke-width', 1.2);
+                })
+                .on('mousemove', function(event) {
+                    pointer.style.left = event.pageX + 15 + 'px';
+                    pointer.style.top = event.pageY + 15 + 'px';
+                })
+                .on('mouseout', function() {
+                    pointer.style.display = 'none';
+                    d3.select(this).style('stroke', 'rgba(255,255,255,0.3)').style('stroke-width', 0.6);
+                })
+        }
+
+        const drawCentroids = (el) => {
+            el.selectAll('circle')
+            .data(mapData)
+            .join('circle')
+                .attr("class","center")
+                .attr('cx', d => d.centroid[0])
+                .attr('cy', d => d.centroid[1])
+                .style("opacity",0.55)
+                .style('fill', 'orange')
+                .attr("stroke-width",1.5)
+                .attr("stroke","white")
+                .transition()            
+                .duration(500) 
+                .attr('r', (d)=>{
+                    try {
+                        const linestory = getHistory(dataLine,d.id,"final_total_points");
+                        if (!linestory) return 0;
+                        const valueCenter = filterdate(linestory.lineData,fromDate,toDate).map(el=>el["final_total_points"])
+                        return avarage(valueCenter)/10
+                    } catch (error) {
+                        return 0
+                    }
+                })
+        }
+
+        const g = svg.append('g').classed('map', true)
+        drawMap(g)
+        drawCentroids(g)
+
+        return svg.node()
+    }
+
+    const createCentroidLegend = (width, height) => {
+        const svg = d3.create("svg").attr("width", width).attr("height", height)
+        const g = svg.append("g").attr("transform", "translate(25, 45)")
+        const exemples = [
+            { label: "~ 50 pts",  r: 4  },
+            { label: "~ 200 pts", r: 14 },
+            { label: "~ 400 pts", r: 24 },
+        ]
+        let offsetY = 10
+        exemples.forEach(({ label, r }) => {
+            g.append("circle").attr("cy", 15).attr("cx", offsetY + r).attr("r", r).attr("fill", "orange").attr("opacity", 0.55).attr("stroke", "white").attr("stroke-width", 1.5)
+            offsetY += r * 2 + 35
+        })
+        offsetY = 10
+        exemples.forEach(({ label, r }) => {
+            g.append("text").text(label).attr("y", 15 + r + 15).attr("x", offsetY + r).attr("text-anchor", "middle").attr("fill", "rgba(255,255,255,0.6)").attr("font-size", "10px").attr("font-family", "Poppins")
+            offsetY += r * 2 + 35
+        })
+        g.append("text").text("Durchschnittliche Punkte / Periode :").attr("fill", "#ffffff").attr("font-size", "11px").attr("font-family", "Poppins").attr("font-weight", "500").attr("x", 10).attr("y", -15)
+        return svg.node()
+    }
+
+    d3.json("europeUltra.json").then(data => {
+        const svgNode = mapSvg(d3.geoMercator(), data, 15, 54, 1.1, 550, 520)
+        svgcontainer.appendChild(svgNode)
+
+        const sidePanel = d3.select(svgcontainer).append("div")
+            .attr("class", "side_panel")
+            .attr("id", "side-panel-node");
+
+        sidePanel.node().appendChild(createVoidDiagram("", 520, 260));
+
+        legendsBox.appendChild(createCentroidLegend(420, 100))
+    })
+})
+</script>
+</body>
+</html>

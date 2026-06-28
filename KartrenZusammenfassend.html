@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<title>Europe Map</title>
+<style>
+    * {
+        overflow: visible;
+    }
+    body { 
+        font-family: 'Poppins', sans-serif;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        color: #1f2540;
+        padding: 50px 20px;
+        justify-content: space-around;
+        gap: 20px;
+        background: #001220;
+    }
+    svg.map {
+        background: #03101e;
+        padding: 50px;
+        border-radius: 20px;
+    }
+    svg.legend {
+        background: #03101e;
+        padding: 20px;
+        border-radius: 10px;
+    }
+    path {
+        cursor: pointer;
+        transition: fill-opacity 0.25s ease, stroke 0.2s ease;
+    }
+    #pointer {
+        font-family: 'Poppins', sans-serif;
+        font-weight: bolder;
+        font-size: 12px;
+        background-color: #001d3d;
+        color: #fff;
+        padding: 10px 20px;
+        border-radius: 5px;
+        display: none;
+        position: absolute;
+        z-index: 1000;
+    }
+    #svg_container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        gap: 100px;
+        margin-top: 20px;
+    }
+    #inf_container {
+        background: rgba(31, 37, 64, 0.65);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 20px;
+        width: 450px;
+        padding: 35px 40px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 50px rgba(251, 133, 0, 0.1);
+        box-sizing: border-box;
+    }
+    .inf_label {
+        color: #fb8500;
+        font-size: 24px;
+        font-weight: 700;
+        text-align: center;
+        margin-top: 0;
+        margin-bottom: 30px;
+        letter-spacing: 0.5px;
+    }
+    .inf_row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        transition: all 0.2s ease;
+    }
+    .inf_row:hover {
+        cursor: pointer;
+        border-bottom-color: #fb8500;
+        transform: translateX(4px);
+    }
+    .inf_cell:first-child {
+        color: #e0e6ed;
+        font-size: 15px;
+        font-weight: 600;
+    }
+    .inf_cell:last-child {
+        font-size: 16px;
+        font-weight: 700;
+        display: flex;
+        gap: 4px;
+        align-items: baseline;
+    }
+    .inf_cell span[id], .inf_cell > span {
+        color: #ff9e00 !important;
+    }
+    #name {
+        height: 50px;
+        display: flex;
+        align-items: center;
+        color: #ffffff;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+    }
+    #stars {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        overflow: hidden;
+    }
+    .star {
+        position: absolute;
+        border-radius: 50%;
+        background: #fff;
+        animation: twinkle var(--d, 3s) ease-in-out infinite alternate;
+        opacity: var(--o, 0.4);
+    }
+    @keyframes twinkle { to { opacity: 0.05; } }
+
+    .viz-description {
+        position: relative;
+        z-index: 10;
+        max-width: 1000px;
+        width: 90%;
+        margin: 40px auto 0 auto;
+        background: rgba(31, 37, 64, 0.5);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-left: 4px solid #fb8500;
+        border-radius: 12px;
+        padding: 24px 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        box-sizing: border-box;
+    }
+    .vd-title {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #fb8500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .vd-text {
+        font-size: 14px;
+        line-height: 1.75;
+        color: rgba(255, 255, 255, 0.8);
+    }
+    .vd-tips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 6px;
+    }
+    .vd-tip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: 20px;
+        padding: 6px 14px;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.75);
+    }
+    .vd-tip i {
+        color: #fb8500;
+        font-size: 13px;
+    }
+    .vd-tip strong {
+        color: #fff;
+    }
+    .desp{
+      opacity: 1;
+      color: #fb8500;
+    }
+</style>
+</head>
+<body>
+
+    <a href="index.html" style="
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        background-color: #001d3d;
+        color: #ffffff;
+        text-decoration: none;
+        border-radius: 6px;
+        font-family: 'Poppins', sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+        border: 1px solid #00b4d8;
+        z-index: 9999;
+        transition: all 0.2s ease-in-out;
+    " onmouseover="this.style.backgroundColor='#00b4d8'; this.style.borderColor='#fb8500';" onmouseout="this.style.backgroundColor='#001d3d'; this.style.borderColor='#00b4d8';">
+        <i class="fa-solid fa-arrow-left"></i> Zurück zur Startseite
+    </a>
+
+<div id="stars"></div>
+<div id="pointer">Russia</div>
+
+<div class="viz-description">
+    <div class="vd-title">
+        <i class="fa-solid fa-circle-info"></i> Geografische & Statistische Analyse
+    </div>
+    <div class="vd-text">
+        Diese interaktive Karte bietet eine historische Übersicht der Performance jedes Landes beim Eurovision Song Contest von 1956 bis 2026. Über die Steuerungselemente können Sie den angezeigten Indikator der Farbskala (Choroplethenkarte) wechseln. Klicken Sie auf ein Land, um dessen detaillierte Statistiken im rechten Seitenpanel zu laden.
+    </div>
+    <div class="vd-tips">
+        <div class="vd-tip"><i class="fa-solid fa-trophy"></i> <span><strong>Siege:</strong> Gesamtzahl der ersten Plätze.</span></div>
+        <div class="vd-tip"><i class="fa-solid fa-star"></i> <span><strong>Prestige-Score:</strong> Kombination aus Konstanz und Qualität.</span></div>
+        <div class="vd-tip"><i class="fa-solid fa-arrow-trend-up"></i> <span><strong>Mittlerer Rang:</strong> Durchschnittliche Finalplatzierung (niedriger ist besser).</span></div>
+        <div class="vd-tip"><i class="fa-solid fa-filter"></i> <span><strong>Finalquote:</strong> Häufigkeit der Qualifikation für das große Finale.</span></div>
+    </div>
+</div>
+
+<div id="svg_container">
+    <div id="inf_container">
+      <h2 class="inf_label">Information zum Land</h2>
+      <div class="desp">
+        <ul>
+          <li>Klicken Sie auf ein Land zum Selektieren,</li>
+          <li>Klicken sie erneut zum Deselektieren.</li>
+        </ul>        
+      </div>
+      <div class="inf_row" id="show_Gewinnhäufigkeit">
+        <div class="inf_cell">Gewinnhäufigkeit:</div>
+        <div class="inf_cell">
+          <span id="Gewinnhäufigkeit">0</span>
+          <span> mal </span>
+        </div>
+      </div>
+
+      <div class="inf_row" id="show_Mittlerer_Rang">
+        <div class="inf_cell">Mittlerer Rang:</div>
+        <div class="inf_cell">
+          <span id="Mittlerer_Rang">25</span>
+          <span> / 25 </span>
+        </div>
+      </div>
+
+      <div class="inf_row" id="show_Mittlere_Points">
+        <div class="inf_cell">Mittlere Points:</div>
+        <div class="inf_cell">
+          <span id="Mittlere_Points">0</span>
+          <span> pts </span>
+        </div>
+      </div>
+
+      <div class="inf_row" id="show_Wie_oft_Finalist">
+        <div class="inf_cell">Wie oft Finalist:</div>
+        <div class="inf_cell">
+          <span id="Wie_oft_Finalist">0</span>
+          <span> mal </span>
+        </div>
+      </div>
+
+      <div class="inf_row" id="show_Final_score">
+        <div class="inf_cell">Final score:</div>
+        <div class="inf_cell">
+          <span id="Final_score">0</span>
+          <span>Prestige</span>
+        </div>
+      </div>
+
+      <div id="name">No selection</div>
+    </div>
+</div>
+
+<div id="legend_container"></div>
+
+<script type="module">
+import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+window.d3 = d3;
+
+let selectedCountryId = null;
+let selectedCountryName = null;
+let activeParam = null; // Stocke le paramètre/aspect actuellement sélectionné
+const informations = {};
+
+const avarage = (intArray) => {
+    const tab = intArray.filter(d => d !== null && d !== undefined)
+    if (tab.length === 0) return 0
+    const mean = tab.reduce((acc, val) => acc + val, 0) / tab.length
+    return Math.round(mean)
+}
+
+const getMeanOf = (data, param, id) =>{
+  const filtererd = data.filter( d => d["country_iso2"] == id )
+  const information = filtererd.map((d)=>d[param])
+
+  if (param == "final_total_points" ) {
+    return avarage(information)
+  }
+  
+  if ( param == "final_place") {
+    const output = information.map((d)=>{
+      if (d == null) {
+        d = 25
+      }
+      return d
+    })
+    return avarage(output)
+  }
+}
+
+const getFrequencyOfWin = (data, id) =>{
+  const filtered = data.filter( d => (d["country_iso2"] == id && d.final_place == 1) )
+  return filtered.length
+}
+
+const getFrequencyOfFinalist = (data, id) => {
+  const filtered = data.filter( d => (d["country_iso2"] == id && d.is_finalist) )
+  return filtered.length
+}
+
+const elGewinnhaufigkeit = document.getElementById("Gewinnhäufigkeit")
+const elMittlererRang    = document.getElementById("Mittlerer_Rang")
+const elMittlerePoints   = document.getElementById("Mittlere_Points")
+const elWieOftFinalist   = document.getElementById("Wie_oft_Finalist")
+const elName             = document.getElementById("name")
+const elPrestige         = document.getElementById("Final_score")
+
+function resetFields() {
+    elGewinnhaufigkeit.textContent = 0;
+    elMittlererRang.textContent    = 25;
+    elMittlerePoints.textContent   = 0;
+    elWieOftFinalist.textContent   = 0;
+    elName.textContent             = "No selection";
+    elPrestige.textContent         = "0";
+}
+
+function updateInfoPanel(countryId, countryName) {
+    if (!countryId || !informations[countryId]) {
+        resetFields();
+        if (countryName) elName.textContent = countryName;
+        return;
+    }
+    const inf = informations[countryId];
+    elGewinnhaufigkeit.textContent = inf.wins;
+    elMittlererRang.textContent    = inf.avgRank;
+    elMittlerePoints.textContent   = inf.avgPoints;
+    elWieOftFinalist.textContent   = inf.finalist;
+    elPrestige.textContent         = inf.prestige;
+    elName.textContent             = countryName || countryId;
+}
+
+const createLegend = (color, data, label = "Prestige") => {
+    const width = 300
+    const height = 60
+    const margin = { top: 10, bottom: 30, left: 20, right: 20 }
+
+    const svg = d3.create("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .attr("class","legend")
+
+    const innerWidth = width - margin.left - margin.right
+
+    const defs = svg.append("defs")
+    const linearGradient = defs.append("linearGradient").attr("id", "legend-gradient")
+
+    const steps = 10
+    d3.range(steps + 1).forEach(i => {
+        linearGradient.append("stop")
+            .attr("offset", `${(i / steps) * 100}%`)
+            .attr("stop-color", color(
+                Math.exp(
+                    Math.log(color.domain()[0]) + 
+                    (i / steps) * (Math.log(color.domain()[1]) - Math.log(color.domain()[0]))
+                )
+            ))
+    })
+
+    const g = svg.append("g").attr("transform", `translate(${margin.left}, ${margin.top})`)
+
+    g.append("rect")
+        .attr("width", innerWidth)
+        .attr("height", 15)
+        .style("fill", "url(#legend-gradient)")
+        .attr("rx", 3)
+
+    const [minVal, maxVal] = color.domain()
+    const xScale = d3.scaleLog().domain([minVal, maxVal]).range([0, innerWidth])
+
+    const axis = g.append("g")
+        .attr("transform", "translate(0, 15)")
+        .call(d3.axisBottom(xScale).ticks(4, ".0f"))
+
+    axis.selectAll("path, line").attr("stroke", "#fff")
+    axis.selectAll("text").attr("fill", "#fff").attr("font-size", "9px")
+
+    g.append("text")
+        .attr("x", innerWidth / 2)
+        .attr("y", height - 5)
+        .attr("text-anchor", "middle")
+        .attr("fill", "#fff")
+        .attr("font-size", "15px")
+        .attr("font-family", "Poppins")
+        .text(label)
+        .attr("id", "legendLabel")
+
+    return svg.node()
+}
+
+d3.json("eurovision-data/entries.json").then(dataInf => {
+
+    const uniqueIds = [...new Set(dataInf.map(d => d.country_iso2))]
+
+    uniqueIds.forEach(id => {
+        const wins      = getFrequencyOfWin(dataInf, id)
+        const avgPoints = getMeanOf(dataInf, "final_total_points", id)
+        const avgRank   = getMeanOf(dataInf, "final_place", id)
+        const finalist  = getFrequencyOfFinalist(dataInf, id)
+        const prestige  = Math.round((avgPoints * (wins + 1)) * finalist / ((avgRank) * 71))
+
+        informations[id] = { wins, avgPoints, avgRank, finalist, prestige }
+    })
+
+const mapSvg = (d3projection, map, centerX, centerY, scaleFactor=1, width=500, height=500, colorParam = "prestige") => {
+  const svg = d3.create("svg")
+    .attr('width', width)
+    .attr('height', height)
+    .attr("class","map")
+    .attr("id","map")
+
+  svg.on("click", function(event) {
+      if (event.target.tagName !== "path") {
+          selectedCountryId = null;
+          selectedCountryName = null;
+          svg.selectAll("path").style("fill-opacity", 1);
+          resetFields();
+      }
+  });
+
+  const projection = d3projection
+    .center([centerX, centerY])
+    .translate([width/2, height/2])
+    .scale(width * scaleFactor)
+
+  const path = d3.geoPath().projection(projection)
+
+  const color = d3.scaleSequentialLog()
+    .domain(d3.extent(Object.values(informations), d => d[colorParam] + 1))
+    .interpolator(d3.interpolateYlGnBu)
+
+  document.getElementById("legend_container").appendChild(createLegend(color, informations, colorParam))
+
+  const mapData = map.features.map((d, i) => {
+      const id = d.id || d.properties.id || d.properties.ID || d.properties.ISO_A2 || "";
+      return {
+        d: path(d),
+        centroid: path.centroid(d),
+        fill: informations[id] ? color(informations[id][colorParam] + 1) : "#133",
+        name: d.properties.NAME || d.properties.name || d.properties.NAME_LONG || "",
+        id: id
+      }
+    })
+
+  const drawMap = (el) => {
+    el.selectAll('path')
+      .data(mapData)
+      .join('path')
+        .attr('d', d => d.d)
+        .style('fill', d => d.fill)
+        .style('stroke', 'orange')
+        .style('stroke-width', 1)
+        .style('fill-opacity', d => {
+            if (selectedCountryId === null) return 1;
+            return d.id === selectedCountryId ? 1 : 0.2;
+        })
+        .on('click', function(event, d) {
+          event.stopPropagation();
+          
+          if (selectedCountryId === d.id) {
+              selectedCountryId = null;
+              selectedCountryName = null;
+              svg.selectAll("path").transition().duration(200).style("fill-opacity", 1);
+              resetFields();
+          } else {
+              // CHANGEMENT DIRECT ICI : Fonctionne désormais de pays à pays sans encombre
+              selectedCountryId = d.id;
+              selectedCountryName = d.name;
+              
+              // Correction essentielle : On n'applique le filtre d'opacité QUE sur les paths de la carte (svg)
+              svg.selectAll("path").style("fill-opacity", p => (p && p.id === d.id) ? 1 : 0.2);
+              updateInfoPanel(d.id, d.name);
+          }
+        })
+        .on('mouseover', function(event,d) {
+            pointer.style.display= 'block'
+            pointer.textContent = d.name 
+        })
+        .on('mousemove', function(event) {
+            pointer.style.left= event.pageX + 10 +`px`
+            pointer.style.top = event.pageY + 10 +`px`
+        })
+        .on('mouseout', function() {
+            pointer.style.display='none'
+        })
+  }
+
+  const g = svg.append('g').classed('map', true)
+  drawMap(g)
+
+  if (selectedCountryId) {
+      updateInfoPanel(selectedCountryId, selectedCountryName);
+  } else {
+      resetFields();
+  }
+
+  return svg.node()
+}
+
+const removeMap = function(){
+  d3.select("#map").remove();
+  d3.select(".legend").remove();
+}
+
+  d3.json("europeUltra.json").then(data => {
+
+    const showMap = function({btn, param}) {
+      btn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        
+        let targetParam = param;
+
+        if (activeParam === param) {
+            activeParam = null;
+            targetParam = "prestige"; 
+            
+            allBtnParamMapping.forEach(item => {
+                if (item.container) item.container.style.opacity = "1";
+            });
+        } else {
+            activeParam = param;
+            
+            allBtnParamMapping.forEach(item => {
+                if (item.container) {
+                    item.container.style.opacity = (item.param === param) ? "1" : "0.35";
+                }
+            });
+        }
+
+        removeMap();
+
+        const svgNode = mapSvg(
+          d3.geoMercator(),  
+          data,              
+          15,                
+          54,                
+          1,                  
+          500,
+          500,
+          targetParam
+        );
+        document.getElementById("svg_container").appendChild(svgNode);
+      });
+    }
+
+    const btnGewinnhaufigkeit = document.getElementById("show_Gewinnhäufigkeit")
+    const btnMittlererRang    = document.getElementById("show_Mittlerer_Rang")
+    const btnMittlerePoints   = document.getElementById("show_Mittlere_Points")
+    const btnWieOftFinalist   = document.getElementById("show_Wie_oft_Finalist")
+    const btnPrestige         = document.getElementById("show_Final_score")
+
+    const allBtnParamMapping = [
+      { btn: btnGewinnhaufigkeit, param: "wins", container: btnGewinnhaufigkeit.closest('.inf_row') },
+      { btn: btnMittlererRang, param: "avgRank", container: btnMittlererRang.closest('.inf_row') },
+      { btn: btnMittlerePoints, param: "avgPoints", container: btnMittlerePoints.closest('.inf_row') },
+      { btn: btnWieOftFinalist, param: "finalist", container: btnWieOftFinalist.closest('.inf_row') },
+      { btn: btnPrestige, param: "prestige", container: btnPrestige.closest('.inf_row') }
+    ];
+
+    allBtnParamMapping.forEach(showMap)
+
+    const svgNode = mapSvg(d3.geoMercator(), data, 15, 54, 1, 500, 500, "prestige")
+    document.getElementById("svg_container").appendChild(svgNode)
+  })
+})
+</script>
+
+
+</body>
+</html>
